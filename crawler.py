@@ -49,31 +49,41 @@ def extractInfo(url, baseurl, style = []):
 			# Abrimos el nuevo link para obtener los precios (Solo queremos el primero lol)
 			soupPrices = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
 
-			festPric = soupPrices.find('div', {'itemprop': 'offers'}).find('span', {'class': 'price'}).getText().strip()[1:]
+			# El data-status es necesario para que no nos liste ofertas ya pasadas
+			prices = soupPrices.findAll('div', {'itemprop': 'offers', 'data-status': 'purchasable'})[0]
+
+			# Obtenemos el precio del span y quitamos el signo de euros
+			prices = prices.find('span', {'class': 'price'})
+			prices = prices.getText().strip()[1:]
+
+			festPric = prices
 
 		else:
+			# No hay precios por cualquier otra razon no tenida en cuenta entre las validas
 			festPric = 'No price yet'
 
 	else:
+		# Recogemos la razon por la que no esta el precio de la entrada
 		festPric = festPric.getText().strip()
 
-	print festPric
 
 
+	# Obtenemos la fecha de inicio del campo startDate 
+	festIniData = soup.find('time', {'itemprop': 'startDate'})
+	if festIniData != None:
+		festIniData = '' if not festIniData.has_attr('datetime') else festIniData['datetime']
+	else:
+		festIniData = ''
 
 
-	# festIniData = soup.find('time', {'itemprop': 'startDate'})
-	# if festIniData != None:
-	# 	festIniData = '' if not festIniData.has_attr('datetime') else festIniData['datetime']
-	# else:
-	# 	festIniData = ''
+	# Obtenemos la fecha de fin del campo endDate 
+	festEndData = soup.find('time', {'itemprop': 'endDate'})
+	if festEndData != None:
+		festEndData = '' if not festEndData.has_attr('datetime') else festEndData['datetime']
+	else:
+		festEndData = ''
 
-
-	# festEndData = soup.find('time', {'itemprop': 'endDate'})
-	# if festEndData != None:
-	# 	festEndData = '' if not festEndData.has_attr('datetime') else festEndData['datetime']
-	# else:
-	# 	festEndData = ''
+	print festIniData + festEndData
 
 	# latitude = soup.find('meta', {'itemprop': 'longitude'})['content']
 	# longitude = soup.find('meta', {'itemprop': 'longitude'})['content']

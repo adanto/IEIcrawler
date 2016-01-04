@@ -53,8 +53,15 @@ def extractInfo(url, baseurl, style = []):
 			prices = soupPrices.find('div', {'itemprop': 'offers', 'data-status': 'purchasable'})
 
 			# Obtenemos el precio del span y quitamos el signo de euros
-			prices = prices.find('span', {'class': 'price'})
-			prices = prices.getText().strip()[1:]
+			if prices != None:
+				prices = prices.find('span', {'class': 'price'})
+
+				if prices != None:
+					prices = prices.getText().strip()[1:]
+				else:
+					prices = "No price yet"
+			else:
+				prices = "No price yet"
 
 			festPric = prices
 

@@ -83,16 +83,36 @@ def extractInfo(url, baseurl, style = []):
 	else:
 		festEndData = ''
 
-	print festIniData + festEndData
 
-	# latitude = soup.find('meta', {'itemprop': 'longitude'})['content']
-	# longitude = soup.find('meta', {'itemprop': 'longitude'})['content']
 
-	# city = soup.findAll('a', {'href': '#festival-location'})[1].getText().strip()
+	# Obtenemos la informacion de posicionamiento de los tags meta latitud y longitud
+	latitude = soup.find('meta', {'itemprop': 'longitude'})['content']
+	longitude = soup.find('meta', {'itemprop': 'longitude'})['content']
+
+	# La informacion de direccion, ciudad, etc la sacamos del container en cuestion 
+	festLocation = soup.find('section', {'id': 'festival-location'}).find('span', {'itemprop': 'address'})
+
+	# Los siguientes tres valores se encuentran uno seguido el uno del otro, cada uno en un span con los siguientes valores de itemprop
+	city = festLocation.find('span', {'itemprop': 'addressLocality'})
+	if city != None:
+		city = city.getText().strip()
+	else:
+		city = ""
 	
-	# address = soup.find('span', {'itemprop': 'streetAddress'}).getText().strip()
+	address = festLocation.find('span', {'itemprop': 'streetAddress'})
+	if address != None:
+		address = address.getText().strip()
+	else:
+		address = ""
 
-	# postalCode = soup.find('span', {'itemprop': 'postalCode'}).getText().strip()
+
+	postalCode = festLocation.find('span', {'itemprop': 'postalCode'})
+	if postalCode != None:
+		postalCode = postalCode.getText().strip()
+	else:
+		postalCode = ""
+
+	print city, address, postalCode
 
 	# lineup = []
 

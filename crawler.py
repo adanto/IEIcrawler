@@ -4,30 +4,61 @@ import urllib2
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
-def extractInfo(url, style = []):
+def extractInfo(url, baseurl, style = []):
+	print url
 
-
-
+	# Se inicializa el objeto soup para hacer consultas a la url 
 	soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
+
+	# Se obtiene el nombre del concierto. La propiedad (itemprop) que lo contiene es "name"
 	festName = soup.find('h1', {'itemprop': 'name'}).getText().strip()
+
+	# El id se consige de la misma forma, en este caso buscando el valor del campo "data-analytics-festival-id"
 	festID = soup.find('body')['data-analytics-festival-id'] 
-	print festName
+
+	# La descripcion del festival aparece en la propiedad description, para la cual buscamos todos los paragrafos 
+	# (Suele estar dividido en varios), y por ultimo los juntamos con un ' '.join de la lista de paragrafos
 	festDesc = soup.find('div', {'itemprop': 'description'}).findAll('p')
 	festDesc = ' '.join([p.getText() for p in festDesc])
 
-	# Este resultado puede ser de los siguientes tipos:
+
+	# El resultado de los precios puede ser de los siguientes tipos:
 	# Sold Out
 	# Coming Soon
+	# Off Sale
+	# Past
+	# Valor numerico 
+	
+	# Si se trata de aguno de los dos primeros, es mas facil.
+	validPrices = ['Past', 'Off Sale', 'Sold Out', 'Coming Soon'] 
 
-	validPrices = ['Sold Out', 'Coming Soon'] 
+	statusContainer = soup.find('div', {'class': 'festival-status-container'})
+	festPric = statusContainer.find('h3', {'class': 'status'})
 
-	festPric = soup.find('a', {'class': 'status'})
 	if not festPric.getText().strip() in validPrices:
-		festPric = soup.find('div', {'class': 'book-package'}).find('a').getText().strip().split()
-		# Para que aparezca la moneda -> festPric[4][0]
-		festPric = festPric[4][1:]
+		# Si no se trata de los validos, se debe buscar en el link el precio de la entrada
+		# Cogemos la url base y la extension para acceder a la pagina donde compramos la entrada
+		# De aqui si podemos recoger el precio
+
+		ticketLink = statusContainer.find('div', {'class': 'media-icon-icon_tickets'})
+		if(ticketLink != None):
+
+			# Tenemos un nuevo link que comprobar para obtener el precio de este festival 
+			ticketLink = baseurl[:-1] + ticketLink.find('a').get('href')
+
+			# Abrimos el nuevo link para obtener los precios (Solo queremos el primero lol)
+			soupPrices = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
+
+			festPric = soupPrices.find('div', {'itemprop': 'offers'}).find('span', {'class': 'price'}).getText().strip()[1:]
+
+		else:
+			festPric = 'No price yet'
+
 	else:
 		festPric = festPric.getText().strip()
+
+	print festPric
+
 
 
 
@@ -137,7 +168,7 @@ def crawler(url, main_url):
 
 
 def startCrawler():
-	url = "http://www.festicket.com/festivals/?page=9"
+	url = "http://www.festicket.com/festivals/?page=1"
 	main_url = "http://www.festicket.com/"
 	urls, stylesList = crawler(url, main_url)
 	urls = [main_url[:-1] + i for i in urls if i[0] == '/']
@@ -151,7 +182,7 @@ def startCrawler():
 	
 	for i in xrange(len(urls[:-1])):
 		# [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup]
-		fest_info = extractInfo(urls[i], stylesList[i])
+		fest_info = extractInfo(urls[i], main_url, stylesList[i])
 
 
 

@@ -50,7 +50,7 @@ def extractInfo(url, baseurl, style = []):
 			soupPrices = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
 
 			# El data-status es necesario para que no nos liste ofertas ya pasadas
-			prices = soupPrices.findAll('div', {'itemprop': 'offers', 'data-status': 'purchasable'})[0]
+			prices = soupPrices.find('div', {'itemprop': 'offers', 'data-status': 'purchasable'})
 
 			# Obtenemos el precio del span y quitamos el signo de euros
 			prices = prices.find('span', {'class': 'price'})
@@ -86,7 +86,7 @@ def extractInfo(url, baseurl, style = []):
 
 
 	# Obtenemos la informacion de posicionamiento de los tags meta latitud y longitud
-	latitude = soup.find('meta', {'itemprop': 'longitude'})['content']
+	latitude = soup.find('meta', {'itemprop': 'latitude'})['content']
 	longitude = soup.find('meta', {'itemprop': 'longitude'})['content']
 
 	# La informacion de direccion, ciudad, etc la sacamos del container en cuestion 
@@ -121,6 +121,15 @@ def extractInfo(url, baseurl, style = []):
 	for artist in soup.findAll('li', {'class': 'artist'}):
 		lineup.append(artist.find('span', {'itemprop': 'name'}).getText())
 
+	# Por ultimo obtenemos los estilos del festival
+
+
+	# styles = []
+	# for styles in items.findAll('span', {'class': 'music-tag'}):
+	# 	styles.append(styles.getText().strip())
+
+
+
 	return [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup, style, url]
 
 	
@@ -129,32 +138,26 @@ def extractInfo(url, baseurl, style = []):
 def trade_spider(max_pages, url):
 	page = 0
 	srcs = []
+	globStyles = []
 
 	while page < max_pages or max_pages == -1 :
 		plain_text = urllib2.urlopen(url).read()
 		soup = BeautifulSoup(plain_text, 'lxml')
-		
+
 		items = soup.find('div', {'class': 'festival-cards'})
-
-		for link in items.findAll('a', {'class': 'button button--big button--secondary button--block'}):
-			href = link.get('href')
+		for link in items.findAll('div', {'class': 'card'}):
+			href = link.find('a', {'class': 'button button--big button--secondary button--block'}).get('href')
 			srcs.append(href)
+			styles = []
+			for style in link.findAll('span', {'class': 'music-tag'}):
+				styles.append(style.getText().strip())
+			globStyles.append(styles)
+		
 
-		it = 0
-		stylesList = []
-
-		for styles in items.findAll('p', {'class': 'music-list'}):
-			for i in styles.findAll('span', {'class': 'music-tag'}):
-				if len(stylesList) > it:
-					stylesList[it].append(i.getText())
-				else:
-					stylesList.append([i.getText()])
-			it += 1
 
 		page += 1 if max_pages != -1 else 0
 
-
-	return list(set(srcs)), stylesList
+	return [srcs, globStyles]
 
 
 
@@ -186,16 +189,15 @@ def crawler(url, main_url):
 								ancAndStyles = trade_spider(1, i)
 								urls_getted += ancAndStyles[0]
 								crawled_urls.append(i)
-
-					stylesList = ancAndStyles[1]
+					stylesList += ancAndStyles[1]
 					crawler_count += 1
 				print crawler_count, "--->", i
 
-		urls += list(set(urls_getted))
+		urls += urls_getted
 		print "crawled_urls", len(crawled_urls), "len(urls_getted)", len(urls_getted), "len(urls)", len(urls) 
 		urls_getted = []
 		deep += 1
-	return [urls, stylesList]
+	return [urls[1:], stylesList]
 
 
 def startCrawler():
@@ -205,12 +207,13 @@ def startCrawler():
 	urls = []
 	stylesList = []
 	
-	for i in xrange(8, 10):
-		res = crawler(url + str(i), main_url)
-		urls += res[0]
-		stylesList += res[1]
+	for i in xrange(1, 10):
+		response = crawler(url + str(i), main_url)
+		urls += response[0]
+		stylesList += response[1]
 
 	urls = [main_url[:-1] + i for i in urls if i[0] == '/']
+
 
 	# Todos los datos obtenidos se almacenaran en un diccionario de forma que cuando se acabe de obtener los datos se transformara
 	# a un documento xml con el esquema de datos de la pagina
@@ -220,6 +223,7 @@ def startCrawler():
 	# Para poder introducir los festivales con el identificador fest, debemos crear una variable contadora de festivales para 
 	# concatenarla al nombre, ya que python no acepta keys iguales para valores distintas
 	festNum = 0
+
 
 	for i in xrange(len(urls[:-1])):
 		# [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup]

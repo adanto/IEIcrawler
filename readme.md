@@ -13,3 +13,5 @@ Para realizar esta operación se tiene que ejecutar el siguiente comando:
 	  python transformer.py
 
 el cual creará un documento html con los datos listos para visualizar más fácilmente, y otro documento xml con los mismos datos pero en el formato del esquema canónico. 
+
+![Esquema Canonico](canonico.png)

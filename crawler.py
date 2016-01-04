@@ -2,10 +2,10 @@
 
 import urllib2
 import xml.etree.ElementTree as ET
+import dicttoxml
 from bs4 import BeautifulSoup
 
 def extractInfo(url, baseurl, style = []):
-	print url
 
 	# Se inicializa el objeto soup para hacer consultas a la url 
 	soup = BeautifulSoup(urllib2.urlopen(url).read(), 'lxml')
@@ -93,6 +93,7 @@ def extractInfo(url, baseurl, style = []):
 	festLocation = soup.find('section', {'id': 'festival-location'}).find('span', {'itemprop': 'address'})
 
 	# Los siguientes tres valores se encuentran uno seguido el uno del otro, cada uno en un span con los siguientes valores de itemprop
+	# Se debe tener en cuenta que puede que no haya informacion, por eso se tiene que comprobar antes de sacar el texto de los mismos
 	city = festLocation.find('span', {'itemprop': 'addressLocality'})
 	if city != None:
 		city = city.getText().strip()
@@ -112,15 +113,15 @@ def extractInfo(url, baseurl, style = []):
 	else:
 		postalCode = ""
 
-	print city, address, postalCode
 
-	# lineup = []
+	# El lineup aparece en la misma pagina del festival en forma de tabla, la cual vamos recorriendo y sacando todos los cantantes que 
+	# van a asistir al acto
+	lineup = []
 
-	# for artist in soup.findAll('li', {'class': 'artist'}):
-	# 	lineup.append(artist.find('span', {'itemprop': 'name'}).getText())
+	for artist in soup.findAll('li', {'class': 'artist'}):
+		lineup.append(artist.find('span', {'itemprop': 'name'}).getText())
 
-	# return [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup]
-	return []
+	return [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup, style, url]
 
 	
 
@@ -194,29 +195,67 @@ def crawler(url, main_url):
 		print "crawled_urls", len(crawled_urls), "len(urls_getted)", len(urls_getted), "len(urls)", len(urls) 
 		urls_getted = []
 		deep += 1
-	return urls, stylesList
+	return [urls, stylesList]
 
 
 def startCrawler():
-	url = "http://www.festicket.com/festivals/?page=1"
+	url = "http://www.festicket.com/festivals/?page="
 	main_url = "http://www.festicket.com/"
-	urls, stylesList = crawler(url, main_url)
+	
+	urls = []
+	stylesList = []
+	
+	for i in xrange(8, 10):
+		res = crawler(url + str(i), main_url)
+		urls += res[0]
+		stylesList += res[1]
+
 	urls = [main_url[:-1] + i for i in urls if i[0] == '/']
 
-	# Preparando XML
-	root = ET.Element('catalogoFestivales')
-	root.attrib['url'] = main_url
-	festivales = ET.SubElement(root, 'festivales')
-	ET.dump(root)
+	# Todos los datos obtenidos se almacenaran en un diccionario de forma que cuando se acabe de obtener los datos se transformara
+	# a un documento xml con el esquema de datos de la pagina
 
-	
+	globFestDic = {'festivales': {}}
+
+	# Para poder introducir los festivales con el identificador fest, debemos crear una variable contadora de festivales para 
+	# concatenarla al nombre, ya que python no acepta keys iguales para valores distintas
+	festNum = 0
+
 	for i in xrange(len(urls[:-1])):
 		# [festName, festID, festDesc, festPric, festIniData, festEndData, latitude, longitude, city, address, postalCode, lineup]
 		fest_info = extractInfo(urls[i], main_url, stylesList[i])
 
+		# Creamos un diccionario para el festival en cuestion
+		festDict = {
+			'name': fest_info[0],
+			'id': fest_info[1],
+			'description': fest_info[2],
+			'price': fest_info[3],
+			'startDate': fest_info[4],
+			'endDate': fest_info[5],
+			'position': {
+				'latitude': fest_info[6],
+				'longitude': fest_info[7]
+			},
+			'address': {
+				'city': fest_info[8],
+				'address': fest_info[9],
+				'postalCode': fest_info[10]
+			},
+			'lineup': fest_info[11],
+			'styles': fest_info[12],
+			'url': fest_info[13]
+		}
 
+		# Una vez tenemos el diccionario del nuevo festival, lo agregamos al registro global 
+		globFestDic['festivales']['fest' + str(festNum)] = festDict
+		festNum += 1
 
-		print str((1 + i) * 100.0 / len(urls)) + '%'
+		print str((1 + i) * 100.0 / (len(urls) - 1)) + '%'
+
+	# Guardamos la transformacion en un archivo output.xml
+	with open('output.xml', 'w') as f:
+		f.write(dicttoxml.dicttoxml(globFestDic, attr_type=False));
 
 
 
